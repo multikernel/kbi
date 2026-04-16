@@ -142,6 +142,51 @@ Extracts to bare metal layout:
 /lib/firmware/
 ```
 
+### Build a ModulePack
+
+```bash
+kbi pack build \
+  --type modulepack \
+  --for registry.io/org/kernel:6.8.0 \
+  -m /path/to/modules/ \
+  -t registry.io/org/mydriver:1.0
+```
+
+Build without a target KBI (unbound):
+
+```bash
+kbi pack build \
+  --type modulepack \
+  -m /path/to/modules/ \
+  --arch amd64 \
+  -t registry.io/org/mydriver:1.0
+```
+
+### Build a BPF Pack
+
+```bash
+kbi pack build \
+  --type bpfpack \
+  --for registry.io/org/kernel:6.8.0 \
+  --bpf /path/to/bpf/ \
+  -t registry.io/org/mybpf:1.0
+```
+
+### Inspect a pack
+
+```bash
+kbi pack inspect registry.io/org/mydriver:1.0
+```
+
+```
+Type:        modulepack
+For KBI ID:  kbi:sha256:3701209414c63c65...
+For Kernel:  6.8.0
+Arch:        amd64
+Contents:    mydriver.ko
+Digest:      sha256:ef45ab...
+```
+
 ## Artifacts
 
 Only `vmlinuz` is required. All others are optional:

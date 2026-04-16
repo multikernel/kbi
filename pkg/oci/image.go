@@ -114,7 +114,7 @@ func BuildImage(b *bundle.Bundle) (v1.Image, error) {
 
 	// modules (optional, tar directory, not an identity component)
 	if b.ModulesPath != "" {
-		modData, err := tarDirectory(b.ModulesPath)
+		modData, err := TarDirectory(b.ModulesPath)
 		if err != nil {
 			return nil, fmt.Errorf("taring modules: %w", err)
 		}
@@ -127,7 +127,7 @@ func BuildImage(b *bundle.Bundle) (v1.Image, error) {
 
 	// firmware (optional, tar directory, not an identity component)
 	if b.FirmwarePath != "" {
-		fwData, err := tarDirectory(b.FirmwarePath)
+		fwData, err := TarDirectory(b.FirmwarePath)
 		if err != nil {
 			return nil, fmt.Errorf("taring firmware: %w", err)
 		}
@@ -159,11 +159,16 @@ func BuildImage(b *bundle.Bundle) (v1.Image, error) {
 	return annotated, nil
 }
 
-// tarDirectory creates a tar archive of all files in a directory.
+// NewBlobLayer creates a blobLayer with the given content and media type.
+func NewBlobLayer(content []byte, mediaType string) *blobLayer {
+	return &blobLayer{content: content, mediaType: mediaType}
+}
+
+// TarDirectory creates a tar archive of all files in a directory.
 // Symlinks are skipped — kernel module symlinks (build, source) are not
 // preserved. This avoids following symlinks outside the directory tree
 // and potential infinite loops from circular symlinks.
-func tarDirectory(dir string) ([]byte, error) {
+func TarDirectory(dir string) ([]byte, error) {
 	var buf bytes.Buffer
 	tw := tar.NewWriter(&buf)
 
