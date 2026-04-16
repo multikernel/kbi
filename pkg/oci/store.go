@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"syscall"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
+	"github.com/google/go-containerregistry/pkg/v1/validate"
 )
 
 // Store manages KBI images stored locally in OCI image layout format.
@@ -34,7 +36,7 @@ func DefaultStore() *Store {
 // Save writes an OCI image to local storage under the given reference.
 func (s *Store) Save(ref string, img v1.Image) error {
 	imgPath := s.refToPath(ref)
-	if err := os.MkdirAll(imgPath, 0755); err != nil {
+	if err := os.MkdirAll(imgPath, 0700); err != nil {
 		return fmt.Errorf("creating image directory: %w", err)
 	}
 
@@ -83,6 +85,11 @@ func (s *Store) Load(ref string) (v1.Image, error) {
 		return nil, fmt.Errorf("loading image: %w", err)
 	}
 
+	// Verify layer digests match the manifest to detect tampering.
+	if err := validate.Image(img, validate.Fast); err != nil {
+		return nil, fmt.Errorf("integrity check failed for %q: %w", ref, err)
+	}
+
 	return img, nil
 }
 
@@ -100,9 +107,9 @@ func (s *Store) Exists(ref string) bool {
 func (s *Store) refToPath(ref string) string {
 	parsed, err := name.ParseReference(ref)
 	if err != nil {
-		// Fallback: use the ref as-is, replacing colons and @ with slashes
-		safe := filepath.FromSlash(ref)
-		return filepath.Join(s.root, "images", safe)
+		// Reject unparseable references to prevent path traversal
+		// via crafted refs containing "../".
+		return filepath.Join(s.root, "images", "_invalid")
 	}
 	// Use registry/repository/identifier as path
 	registry := parsed.Context().RegistryStr()
@@ -122,7 +129,13 @@ func (s *Store) Remove(ref string) error {
 		return fmt.Errorf("removing image directory: %w", err)
 	}
 
-	// Remove from index
+	// Remove from index under lock
+	lock, err := s.lockIndex()
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
+
 	indexPath := filepath.Join(s.root, "kbi.json")
 	data, err := os.ReadFile(indexPath)
 	if err != nil {
@@ -146,7 +159,7 @@ func (s *Store) Remove(ref string) error {
 	if err != nil {
 		return fmt.Errorf("marshaling index: %w", err)
 	}
-	return os.WriteFile(indexPath, out, 0644)
+	return os.WriteFile(indexPath, out, 0600)
 }
 
 // List returns all image references stored locally.
@@ -172,6 +185,24 @@ func (s *Store) List() ([]string, error) {
 	return refs, nil
 }
 
+// lockIndex acquires an exclusive flock on a .lock file next to kbi.json.
+// Returns the lock file which must be closed (and thus unlocked) by the caller.
+func (s *Store) lockIndex() (*os.File, error) {
+	lockPath := filepath.Join(s.root, "kbi.lock")
+	if err := os.MkdirAll(s.root, 0700); err != nil {
+		return nil, fmt.Errorf("creating store root: %w", err)
+	}
+	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0600)
+	if err != nil {
+		return nil, fmt.Errorf("opening lock file: %w", err)
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		f.Close()
+		return nil, fmt.Errorf("acquiring lock: %w", err)
+	}
+	return f, nil
+}
+
 // kbiIndex is the structure for the kbi.json index file.
 type kbiIndex struct {
 	Images []kbiIndexEntry `json:"images"`
@@ -184,6 +215,12 @@ type kbiIndexEntry struct {
 
 // updateIndex maintains a kbi.json index file in the store root.
 func (s *Store) updateIndex(ref, path string) error {
+	lock, err := s.lockIndex()
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
+
 	indexPath := filepath.Join(s.root, "kbi.json")
 
 	var idx kbiIndex
@@ -210,9 +247,5 @@ func (s *Store) updateIndex(ref, path string) error {
 		return fmt.Errorf("marshaling index: %w", err)
 	}
 
-	if err := os.MkdirAll(s.root, 0755); err != nil {
-		return fmt.Errorf("creating store root: %w", err)
-	}
-
-	return os.WriteFile(indexPath, out, 0644)
+	return os.WriteFile(indexPath, out, 0600)
 }
