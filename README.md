@@ -36,8 +36,6 @@ Instead of embedding the kernel inside an OS image, KBI treats the kernel as a f
 
 ### Execution Models
 
-**Multikernel (Kerf)** - Late binding composition: `KBI + RootFS OCI -> runtime composition -> spawn kernel`. Multiple kernels simultaneously, no installation step.
-
 **Bare Metal** - KBI is installed via adapter: `vmlinuz -> /boot/vmlinuz-<kver>`, `modules -> /lib/modules/<kver>`. Bootloader configured normally.
 
 **VM / Image Build** - KBI is baked into disk image, same mapping as bare metal or direct kernel boot via hypervisor.
@@ -54,7 +52,8 @@ Instead of embedding the kernel inside an OS image, KBI treats the kernel as a f
 - KBI images signed by kernel authority
 - ModulePack/BPF Pack signed by vendors
 - Resolver enforces signature policy and compatibility binding
-- Optional: module signature enforcement, measured boot
+- TODO: kernel module signature verification at pack build and install time
+- Optional: measured boot
 
 ### Why not existing tools?
 
