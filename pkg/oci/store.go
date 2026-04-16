@@ -111,6 +111,67 @@ func (s *Store) refToPath(ref string) string {
 	return filepath.Join(s.root, "images", registry, repo, identifier)
 }
 
+// Remove deletes an image from local storage and removes it from the index.
+func (s *Store) Remove(ref string) error {
+	imgPath := s.refToPath(ref)
+	if _, err := os.Stat(imgPath); err != nil {
+		return fmt.Errorf("image %q not found", ref)
+	}
+
+	if err := os.RemoveAll(imgPath); err != nil {
+		return fmt.Errorf("removing image directory: %w", err)
+	}
+
+	// Remove from index
+	indexPath := filepath.Join(s.root, "kbi.json")
+	data, err := os.ReadFile(indexPath)
+	if err != nil {
+		return nil // index missing is not an error
+	}
+
+	var idx kbiIndex
+	if err := json.Unmarshal(data, &idx); err != nil {
+		return nil
+	}
+
+	filtered := idx.Images[:0]
+	for _, entry := range idx.Images {
+		if entry.Ref != ref {
+			filtered = append(filtered, entry)
+		}
+	}
+	idx.Images = filtered
+
+	out, err := json.MarshalIndent(idx, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshaling index: %w", err)
+	}
+	return os.WriteFile(indexPath, out, 0644)
+}
+
+// List returns all image references stored locally.
+func (s *Store) List() ([]string, error) {
+	indexPath := filepath.Join(s.root, "kbi.json")
+	data, err := os.ReadFile(indexPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("reading index: %w", err)
+	}
+
+	var idx kbiIndex
+	if err := json.Unmarshal(data, &idx); err != nil {
+		return nil, fmt.Errorf("parsing index: %w", err)
+	}
+
+	refs := make([]string, len(idx.Images))
+	for i, entry := range idx.Images {
+		refs[i] = entry.Ref
+	}
+	return refs, nil
+}
+
 // kbiIndex is the structure for the kbi.json index file.
 type kbiIndex struct {
 	Images []kbiIndexEntry `json:"images"`
