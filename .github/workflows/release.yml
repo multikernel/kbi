@@ -97,4 +97,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ steps.tag.outputs.tag }}
-        run: gh release upload "$TAG" dist/*.tar.gz dist/checksums.txt --clobber
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes
+          fi
+          gh release upload "$TAG" dist/*.tar.gz dist/checksums.txt --clobber
