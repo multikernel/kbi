@@ -9,6 +9,10 @@ const (
 	AnnotationPackForKver  = "io.multikernel.kbi.pack.for_kver"
 	AnnotationPackContents = "io.multikernel.kbi.pack.contents"
 	AnnotationPackRequires = "io.multikernel.kbi.pack.requires"
+	AnnotationBPFManifest  = "io.multikernel.kbi.pack.bpf.manifest"
+	AnnotationBPFPrograms  = "io.multikernel.kbi.pack.bpf.programs"
+	AnnotationBPFKfuncs    = "io.multikernel.kbi.pack.bpf.kfuncs"
+	AnnotationBPFTypes     = "io.multikernel.kbi.pack.bpf.types"
 )
 
 type PackType string

@@ -30,7 +30,7 @@ Instead of embedding the kernel inside an OS image, KBI treats the kernel as a f
 **Add-ons** are separately packaged OCI artifacts that declare compatibility with a specific KBI ID:
 
 - **ModulePack** - out-of-tree kernel modules (`for_kbi_id = <kbi_id>`)
-- **BPF Pack** - compiled eBPF programs with attach metadata and required kfuncs (`for_kbi_id = <kbi_id>`)
+- **BPF Pack** - compiled eBPF programs plus vendor-provided `kbi-bpf.json` metadata describing attach points, required kfuncs, and required kernel types/fields (`for_kbi_id = <kbi_id>`)
 
 Pack builds are rejected unless they declare a target KBI ID, either by resolving a target image with `--for` or by passing `--for-kbi-id` directly.
 
@@ -45,7 +45,8 @@ Pack builds are rejected unless they declare a target KBI ID, either by resolvin
 ### Compatibility Model
 
 - Kernel-module compatibility enforced via `kbi_id` matching
-- eBPF programs verified against BTF/kfunc availability
+- eBPF pack compatibility currently enforces `kbi_id` matching, architecture matching, BTF presence, and a valid dependency manifest
+- TODO: deep eBPF verification against BTF, including kfunc signature and kernel type/field compatibility
 - Add-ons must declare compatibility
 - Incompatible combinations rejected before boot (fail-fast)
 
@@ -177,6 +178,31 @@ kbi pack build \
   -t registry.io/org/mybpf:1.0
 ```
 
+BPF packs must include a `kbi-bpf.json` manifest in the BPF directory, or pass it explicitly with `--bpf-manifest`. The BPF pack author/vendor provides this file:
+
+```json
+{
+  "schema_version": 1,
+  "programs": [
+    {
+      "file": "trace.o",
+      "section": "fentry/do_sys_openat2",
+      "attach": "fentry",
+      "target": "do_sys_openat2"
+    }
+  ],
+  "requires": {
+    "btf": true,
+    "kfuncs": ["bpf_task_acquire"],
+    "kernel_types": [
+      {"name": "task_struct", "fields": ["pid", "comm"]}
+    ]
+  }
+}
+```
+
+KBI validates that this manifest is present, well-formed, and references object files in the pack. It records declared kfunc and kernel type dependencies as OCI annotations. Full semantic verification of kfunc signatures, CO-RE relocations, and kernel data structure compatibility is planned as a deeper verifier step.
+
 ### Inspect a pack
 
 ```bash
@@ -202,6 +228,8 @@ kbi resolve \
 ```
 
 Rejects packs that target a different KBI ID or architecture, and rejects BPF packs that require BTF when the target KBI image does not include BTF.
+
+This is a compatibility gate, not a full eBPF verifier. The resolver consumes declared BPF dependencies and enforces binding/BTF presence today; future verifier work should use the manifest plus KBI BTF to prove kfunc signatures, CO-RE relocations, and kernel type/field compatibility.
 
 ## Artifacts
 
@@ -251,6 +279,15 @@ io.multikernel.kbi.id
 io.multikernel.kbi.kver
 io.multikernel.kbi.arch
 io.multikernel.kbi.components
+```
+
+BPF pack annotations also summarize manifest metadata:
+
+```
+io.multikernel.kbi.pack.bpf.manifest
+io.multikernel.kbi.pack.bpf.programs
+io.multikernel.kbi.pack.bpf.kfuncs
+io.multikernel.kbi.pack.bpf.types
 ```
 
 No modifications to the OCI spec. KBI images work with any OCI-compliant registry.

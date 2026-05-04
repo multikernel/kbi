@@ -111,6 +111,7 @@ func buildTestPack(t *testing.T, packType pack.PackType, forKBIID, arch string) 
 		if err := os.WriteFile(filepath.Join(dir, "artifact.o"), []byte("fake-bpf"), 0644); err != nil {
 			t.Fatal(err)
 		}
+		writeBPFManifest(t, dir)
 	}
 
 	p := &pack.Pack{
@@ -133,6 +134,30 @@ func fakeKO(vermagic string) []byte {
 	marker := append([]byte("vermagic="), []byte(vermagic)...)
 	marker = append(marker, 0x00)
 	return append(prefix, marker...)
+}
+
+func writeBPFManifest(t *testing.T, dir string) {
+	t.Helper()
+	manifest := `{
+  "schema_version": 1,
+  "programs": [
+    {
+      "file": "artifact.o",
+      "section": "fentry/do_sys_openat2",
+      "attach": "fentry",
+      "target": "do_sys_openat2"
+    }
+  ],
+  "requires": {
+    "btf": true,
+    "kernel_types": [
+      {"name": "task_struct", "fields": ["pid", "comm"]}
+    ]
+  }
+}`
+	if err := os.WriteFile(filepath.Join(dir, pack.DefaultBPFManifestName), []byte(manifest), 0644); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func kbiID(t *testing.T, img v1.Image) string {

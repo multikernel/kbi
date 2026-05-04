@@ -59,6 +59,18 @@ func runResolve(cmd *cobra.Command, args []string) error {
 		if p.Requires != "" {
 			fmt.Printf("    Requires: %s\n", p.Requires)
 		}
+		if p.BPFManifest != "" {
+			fmt.Printf("    BPF Manifest: %s\n", p.BPFManifest)
+		}
+		if p.BPFPrograms != "" {
+			fmt.Printf("    BPF Programs: %s\n", p.BPFPrograms)
+		}
+		if p.BPFKfuncs != "" {
+			fmt.Printf("    BPF Kfuncs: %s\n", p.BPFKfuncs)
+		}
+		if p.BPFTypes != "" {
+			fmt.Printf("    BPF Types: %s\n", p.BPFTypes)
+		}
 	}
 
 	return nil

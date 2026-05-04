@@ -61,6 +61,7 @@ func TestBuildPack_BPFPack(t *testing.T) {
 	bpfDir := filepath.Join(dir, "bpf")
 	os.MkdirAll(bpfDir, 0755)
 	os.WriteFile(filepath.Join(bpfDir, "trace.o"), []byte("fake-bpf"), 0644)
+	writeBPFManifest(t, bpfDir, "trace.o")
 
 	p := &Pack{
 		Type:       PackTypeBPF,
@@ -88,6 +89,37 @@ func TestBuildPack_BPFPack(t *testing.T) {
 	if manifest.Annotations[AnnotationPackRequires] != "btf" {
 		t.Fatalf("expected requires=btf: %s", manifest.Annotations[AnnotationPackRequires])
 	}
+	if manifest.Annotations[AnnotationBPFManifest] != DefaultBPFManifestName {
+		t.Fatalf("expected BPF manifest annotation: %s", manifest.Annotations[AnnotationBPFManifest])
+	}
+	if manifest.Annotations[AnnotationBPFPrograms] != "trace.o:fentry/do_sys_openat2" {
+		t.Fatalf("wrong BPF programs annotation: %s", manifest.Annotations[AnnotationBPFPrograms])
+	}
+	if manifest.Annotations[AnnotationBPFKfuncs] != "bpf_task_acquire" {
+		t.Fatalf("wrong BPF kfuncs annotation: %s", manifest.Annotations[AnnotationBPFKfuncs])
+	}
+	if manifest.Annotations[AnnotationBPFTypes] != "task_struct:pid|comm" {
+		t.Fatalf("wrong BPF types annotation: %s", manifest.Annotations[AnnotationBPFTypes])
+	}
+}
+
+func TestBuildPack_BPFPackRequiresManifest(t *testing.T) {
+	dir := t.TempDir()
+	bpfDir := filepath.Join(dir, "bpf")
+	os.MkdirAll(bpfDir, 0755)
+	os.WriteFile(filepath.Join(bpfDir, "trace.o"), []byte("fake-bpf"), 0644)
+
+	p := &Pack{
+		Type:       PackTypeBPF,
+		SourcePath: bpfDir,
+		ForKBIID:   "kbi:sha256:abc123",
+		Arch:       "amd64",
+		Tag:        "test.io/mybpf:1.0",
+	}
+
+	if _, err := BuildPack(p); err == nil {
+		t.Fatal("expected error when BPF manifest is missing")
+	}
 }
 
 func TestBuildPack_EmptySourceDir(t *testing.T) {
@@ -102,5 +134,30 @@ func TestBuildPack_EmptySourceDir(t *testing.T) {
 	_, err := BuildPack(p)
 	if err == nil {
 		t.Fatal("expected error for empty source dir")
+	}
+}
+
+func writeBPFManifest(t *testing.T, dir, file string) {
+	t.Helper()
+	manifest := `{
+  "schema_version": 1,
+  "programs": [
+    {
+      "file": "` + file + `",
+      "section": "fentry/do_sys_openat2",
+      "attach": "fentry",
+      "target": "do_sys_openat2"
+    }
+  ],
+  "requires": {
+    "btf": true,
+    "kfuncs": ["bpf_task_acquire"],
+    "kernel_types": [
+      {"name": "task_struct", "fields": ["pid", "comm"]}
+    ]
+  }
+}`
+	if err := os.WriteFile(filepath.Join(dir, DefaultBPFManifestName), []byte(manifest), 0644); err != nil {
+		t.Fatal(err)
 	}
 }

@@ -18,13 +18,17 @@ type PackInput struct {
 
 // PackResult describes a pack accepted into the resolved kernel view.
 type PackResult struct {
-	Ref      string
-	Type     string
-	ForKBIID string
-	ForKver  string
-	Arch     string
-	Contents string
-	Requires string
+	Ref         string
+	Type        string
+	ForKBIID    string
+	ForKver     string
+	Arch        string
+	Contents    string
+	Requires    string
+	BPFManifest string
+	BPFPrograms string
+	BPFKfuncs   string
+	BPFTypes    string
 }
 
 // Result is the resolved and compatibility-checked kernel view.
@@ -70,13 +74,17 @@ func Resolve(kbiRef string, kbiImg v1.Image, packs []PackInput) (*Result, error)
 
 		annotations := packManifest.Annotations
 		resolvedPack := PackResult{
-			Ref:      input.Ref,
-			Type:     annotations[pack.AnnotationPackType],
-			ForKBIID: annotations[pack.AnnotationPackForKBIID],
-			ForKver:  annotations[pack.AnnotationPackForKver],
-			Arch:     annotations[oci.AnnotationArch],
-			Contents: annotations[pack.AnnotationPackContents],
-			Requires: annotations[pack.AnnotationPackRequires],
+			Ref:         input.Ref,
+			Type:        annotations[pack.AnnotationPackType],
+			ForKBIID:    annotations[pack.AnnotationPackForKBIID],
+			ForKver:     annotations[pack.AnnotationPackForKver],
+			Arch:        annotations[oci.AnnotationArch],
+			Contents:    annotations[pack.AnnotationPackContents],
+			Requires:    annotations[pack.AnnotationPackRequires],
+			BPFManifest: annotations[pack.AnnotationBPFManifest],
+			BPFPrograms: annotations[pack.AnnotationBPFPrograms],
+			BPFKfuncs:   annotations[pack.AnnotationBPFKfuncs],
+			BPFTypes:    annotations[pack.AnnotationBPFTypes],
 		}
 
 		if resolvedPack.Type != string(pack.PackTypeModule) && resolvedPack.Type != string(pack.PackTypeBPF) {
@@ -99,6 +107,9 @@ func Resolve(kbiRef string, kbiImg v1.Image, packs []PackInput) (*Result, error)
 		}
 		if resolvedPack.Type == string(pack.PackTypeBPF) && !hasComponent(result.Components, "btf") {
 			return nil, fmt.Errorf("BPF pack %s requires BTF, but KBI image %s does not include BTF", input.Ref, kbiRef)
+		}
+		if resolvedPack.Type == string(pack.PackTypeBPF) && resolvedPack.BPFManifest == "" {
+			return nil, fmt.Errorf("BPF pack %s is missing %s annotation", input.Ref, pack.AnnotationBPFManifest)
 		}
 
 		result.Packs = append(result.Packs, resolvedPack)

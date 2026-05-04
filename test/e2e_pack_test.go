@@ -128,6 +128,7 @@ func TestE2E_BPFPack(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(bpfDir, "filter.o"), []byte("fake-bpf2"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	writeBPFManifest(t, bpfDir)
 
 	p := &pack.Pack{
 		Type:       pack.PackTypeBPF,
@@ -150,6 +151,9 @@ func TestE2E_BPFPack(t *testing.T) {
 	if manifest.Annotations[pack.AnnotationPackRequires] != "btf" {
 		t.Fatalf("expected requires=btf, got: %s", manifest.Annotations[pack.AnnotationPackRequires])
 	}
+	if manifest.Annotations[pack.AnnotationBPFManifest] != pack.DefaultBPFManifestName {
+		t.Fatalf("expected BPF manifest, got: %s", manifest.Annotations[pack.AnnotationBPFManifest])
+	}
 	contents := manifest.Annotations[pack.AnnotationPackContents]
 	if !strings.Contains(contents, "trace.o") || !strings.Contains(contents, "filter.o") {
 		t.Fatalf("missing programs in contents: %s", contents)
@@ -162,4 +166,35 @@ func createFakeKO(vermagic string) []byte {
 	marker := append([]byte("vermagic="), []byte(vermagic)...)
 	marker = append(marker, 0x00)
 	return append(prefix, marker...)
+}
+
+func writeBPFManifest(t *testing.T, dir string) {
+	t.Helper()
+	manifest := `{
+  "schema_version": 1,
+  "programs": [
+    {
+      "file": "trace.o",
+      "section": "fentry/do_sys_openat2",
+      "attach": "fentry",
+      "target": "do_sys_openat2"
+    },
+    {
+      "file": "filter.o",
+      "section": "tracepoint/syscalls/sys_enter_openat",
+      "attach": "tracepoint",
+      "target": "syscalls/sys_enter_openat"
+    }
+  ],
+  "requires": {
+    "btf": true,
+    "kfuncs": ["bpf_task_acquire"],
+    "kernel_types": [
+      {"name": "task_struct", "fields": ["pid", "comm"]}
+    ]
+  }
+}`
+	if err := os.WriteFile(filepath.Join(dir, pack.DefaultBPFManifestName), []byte(manifest), 0644); err != nil {
+		t.Fatal(err)
+	}
 }

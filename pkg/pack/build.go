@@ -25,7 +25,7 @@ func BuildPack(p *Pack) (v1.Image, error) {
 		return nil, fmt.Errorf("source path %s does not exist: %w", p.SourcePath, err)
 	}
 
-	// Validate modules if bound
+	var bpfSummary *BPFManifestSummary
 	if p.ForKver != "" && p.Type == PackTypeModule {
 		if errs := ValidateModules(p.SourcePath, p.ForKver); len(errs) > 0 {
 			msgs := make([]string, len(errs))
@@ -34,6 +34,13 @@ func BuildPack(p *Pack) (v1.Image, error) {
 			}
 			return nil, fmt.Errorf("module validation failed:\n  %s", strings.Join(msgs, "\n  "))
 		}
+	}
+	if p.Type == PackTypeBPF {
+		summary, err := ValidateBPFManifest(p.SourcePath, p.BPFManifestPath)
+		if err != nil {
+			return nil, err
+		}
+		bpfSummary = summary
 	}
 
 	var mediaType string
@@ -77,6 +84,14 @@ func BuildPack(p *Pack) (v1.Image, error) {
 	}
 	if p.Type == PackTypeBPF {
 		annotations[AnnotationPackRequires] = "btf"
+		annotations[AnnotationBPFManifest] = bpfSummary.Path
+		annotations[AnnotationBPFPrograms] = strings.Join(bpfSummary.Programs, ",")
+		if len(bpfSummary.Kfuncs) > 0 {
+			annotations[AnnotationBPFKfuncs] = strings.Join(bpfSummary.Kfuncs, ",")
+		}
+		if len(bpfSummary.Types) > 0 {
+			annotations[AnnotationBPFTypes] = strings.Join(bpfSummary.Types, ",")
+		}
 	}
 
 	annotated, ok := mutate.Annotations(img, annotations).(v1.Image)

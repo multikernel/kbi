@@ -58,6 +58,18 @@ func runPackInspect(cmd *cobra.Command, args []string) error {
 	if v := annotations[pack.AnnotationPackRequires]; v != "" {
 		fmt.Printf("Requires:    %s\n", v)
 	}
+	if v := annotations[pack.AnnotationBPFManifest]; v != "" {
+		fmt.Printf("BPF Manifest: %s\n", v)
+	}
+	if v := annotations[pack.AnnotationBPFPrograms]; v != "" {
+		fmt.Printf("BPF Programs: %s\n", v)
+	}
+	if v := annotations[pack.AnnotationBPFKfuncs]; v != "" {
+		fmt.Printf("BPF Kfuncs:  %s\n", v)
+	}
+	if v := annotations[pack.AnnotationBPFTypes]; v != "" {
+		fmt.Printf("BPF Types:   %s\n", v)
+	}
 	fmt.Printf("Digest:      %s\n", digest)
 
 	return nil

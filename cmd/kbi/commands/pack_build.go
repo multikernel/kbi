@@ -21,6 +21,7 @@ var (
 	packBuildType     string
 	packBuildModules  string
 	packBuildBPF      string
+	packBuildBPFMeta  string
 	packBuildFor      string
 	packBuildForKBIID string
 	packBuildTag      string
@@ -31,6 +32,7 @@ func init() {
 	packBuildCmd.Flags().StringVar(&packBuildType, "type", "", "pack type: modulepack or bpfpack (required)")
 	packBuildCmd.Flags().StringVarP(&packBuildModules, "modules", "m", "", "modules directory (for modulepack)")
 	packBuildCmd.Flags().StringVar(&packBuildBPF, "bpf", "", "BPF programs directory (for bpfpack)")
+	packBuildCmd.Flags().StringVar(&packBuildBPFMeta, "bpf-manifest", "", "BPF metadata manifest path (defaults to <bpf>/kbi-bpf.json)")
 	packBuildCmd.Flags().StringVar(&packBuildFor, "for", "", "target KBI image reference (resolves for_kbi_id and triggers validation)")
 	packBuildCmd.Flags().StringVar(&packBuildForKBIID, "for-kbi-id", "", "target KBI ID to bind this pack to")
 	packBuildCmd.Flags().StringVarP(&packBuildTag, "tag", "t", "", "output image reference (required)")
@@ -69,6 +71,9 @@ func runPackBuild(cmd *cobra.Command, args []string) error {
 	if packBuildFor == "" && packBuildForKBIID == "" {
 		return fmt.Errorf("one of --for or --for-kbi-id is required")
 	}
+	if packBuildBPFMeta != "" && packType != pack.PackTypeBPF {
+		return fmt.Errorf("--bpf-manifest is only valid for bpfpack")
+	}
 
 	// Require source directory based on type
 	var sourcePath string
@@ -86,9 +91,10 @@ func runPackBuild(cmd *cobra.Command, args []string) error {
 	}
 
 	p := &pack.Pack{
-		Type:       packType,
-		SourcePath: sourcePath,
-		Tag:        packBuildTag,
+		Type:            packType,
+		SourcePath:      sourcePath,
+		BPFManifestPath: packBuildBPFMeta,
+		Tag:             packBuildTag,
 	}
 
 	store := oci.DefaultStore()
@@ -166,6 +172,12 @@ func runPackBuild(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Printf("Arch:        %s\n", annotations[oci.AnnotationArch])
 	fmt.Printf("Contents:    %s\n", annotations[pack.AnnotationPackContents])
+	if v := annotations[pack.AnnotationBPFManifest]; v != "" {
+		fmt.Printf("BPF Manifest: %s\n", v)
+	}
+	if v := annotations[pack.AnnotationBPFPrograms]; v != "" {
+		fmt.Printf("BPF Programs: %s\n", v)
+	}
 	fmt.Printf("Digest:      %s\n", digest)
 
 	return nil
