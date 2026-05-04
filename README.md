@@ -264,12 +264,12 @@ The KBI ID is used for:
 KBI images are standard OCI images with custom media types per layer:
 
 ```
-application/vnd.kbi.vmlinuz.v1
-application/vnd.kbi.initrd.v1
-application/vnd.kbi.modules.v1.tar
-application/vnd.kbi.firmware.v1.tar
-application/vnd.kbi.kernelconfig.v1
-application/vnd.kbi.btf.v1
+application/vnd.multikernel.kbi.vmlinuz.v1
+application/vnd.multikernel.kbi.initrd.v1
+application/vnd.multikernel.kbi.modules.v1.tar
+application/vnd.multikernel.kbi.firmware.v1.tar
+application/vnd.multikernel.kbi.kernelconfig.v1
+application/vnd.multikernel.kbi.btf.v1
 ```
 
 Annotations on the manifest:

@@ -1,8 +1,8 @@
 package pack
 
 const (
-	MediaTypeModulePack = "application/vnd.kbi.modulepack.v1.tar"
-	MediaTypeBPFPack    = "application/vnd.kbi.bpfpack.v1.tar"
+	MediaTypeModulePack = "application/vnd.multikernel.kbi.modulepack.v1.tar"
+	MediaTypeBPFPack    = "application/vnd.multikernel.kbi.bpfpack.v1.tar"
 
 	AnnotationPackType     = "io.multikernel.kbi.pack.type"
 	AnnotationPackForKBIID = "io.multikernel.kbi.pack.for_kbi_id"
