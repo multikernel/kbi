@@ -34,7 +34,7 @@ Instead of embedding the kernel inside an OS image, KBI treats the kernel as a f
 
 Pack builds are rejected unless they declare a target KBI ID, either by resolving a target image with `--for` or by passing `--for-kbi-id` directly.
 
-**Resolver** is the enforcement layer that pulls OCI artifacts, validates signatures, enforces `for_kbi_id` binding, checks compatibility, and produces a resolved kernel view.
+**Resolver** is the enforcement layer that pulls OCI artifacts, enforces `for_kbi_id` binding, checks compatibility, and produces a resolved kernel view. Signature policy is planned but not yet implemented.
 
 ### Execution Models
 
@@ -53,7 +53,8 @@ Pack builds are rejected unless they declare a target KBI ID, either by resolvin
 
 - KBI images signed by kernel authority
 - ModulePack/BPF Pack signed by vendors
-- Resolver enforces signature policy and compatibility binding
+- Resolver enforces compatibility binding
+- TODO: signature policy enforcement
 - TODO: kernel module signature verification at pack build and install time
 - Optional: measured boot
 
@@ -188,6 +189,17 @@ Arch:        amd64
 Contents:    mydriver.ko
 Digest:      sha256:ef45ab...
 ```
+
+### Resolve a kernel view
+
+```bash
+kbi resolve \
+  registry.io/org/kernel:6.8.0 \
+  registry.io/org/mydriver:1.0 \
+  registry.io/org/mybpf:1.0
+```
+
+Rejects packs that target a different KBI ID or architecture, and rejects BPF packs that require BTF when the target KBI image does not include BTF.
 
 ## Artifacts
 
