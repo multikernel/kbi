@@ -211,7 +211,7 @@ Only `vmlinuz` is required. All others are optional:
 |----------|------|-------------|
 | vmlinuz | `-k` | Kernel binary (required) |
 | initrd | `-i` | Initial ramdisk |
-| modules | `-m` | Kernel modules directory |
+| modules | `-m` | Kernel modules directory; module vermagic must match `--kver` |
 | config | `-c` | Kernel .config |
 | BTF | `-b` | BPF Type Format data |
 | firmware | `--firmware` | Firmware files |

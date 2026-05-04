@@ -55,6 +55,10 @@ func (l *blobLayer) MediaType() (types.MediaType, error) {
 
 // BuildImage converts a Bundle into an OCI v1.Image.
 func BuildImage(b *bundle.Bundle) (v1.Image, error) {
+	if err := b.Validate(); err != nil {
+		return nil, fmt.Errorf("validation failed: %w", err)
+	}
+
 	var addenda []mutate.Addendum
 	identityComponents := map[string][]byte{}
 	var componentNames []string

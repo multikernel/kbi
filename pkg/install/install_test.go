@@ -51,7 +51,8 @@ func TestInstall_WithModules(t *testing.T) {
 	if err := os.MkdirAll(modDir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(modDir, "test.ko"), []byte("fake-module"), 0644); err != nil {
+	moduleContent := fakeKO("6.8.0 SMP preempt")
+	if err := os.WriteFile(filepath.Join(modDir, "test.ko"), moduleContent, 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -89,7 +90,8 @@ func TestInstall_WithModulesVersionDir(t *testing.T) {
 	if err := os.MkdirAll(modDir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(modDir, "test.ko"), []byte("fake-module"), 0644); err != nil {
+	moduleContent := fakeKO("6.8.0 SMP preempt")
+	if err := os.WriteFile(filepath.Join(modDir, "test.ko"), moduleContent, 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -113,7 +115,7 @@ func TestInstall_WithModulesVersionDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("module not installed under kver directory: %v", err)
 	}
-	if string(data) != "fake-module" {
+	if string(data) != string(moduleContent) {
 		t.Fatalf("unexpected module content: %s", data)
 	}
 }
@@ -131,4 +133,12 @@ func TestInstall_DestDoesNotExist(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for nonexistent dest")
 	}
+}
+
+func fakeKO(vermagic string) []byte {
+	prefix := []byte("some padding bytes here\x00")
+	marker := append([]byte("vermagic="), []byte(vermagic)...)
+	marker = append(marker, 0x00)
+	suffix := []byte("\x00more padding")
+	return append(append(prefix, marker...), suffix...)
 }

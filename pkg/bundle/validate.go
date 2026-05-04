@@ -3,6 +3,9 @@ package bundle
 import (
 	"fmt"
 	"os"
+	"strings"
+
+	"github.com/multikernel/kbi/pkg/kmod"
 )
 
 func (b *Bundle) Validate() error {
@@ -33,6 +36,18 @@ func (b *Bundle) Validate() error {
 			if err := checkDirExists(path); err != nil {
 				return fmt.Errorf("%s: %w", name, err)
 			}
+		}
+	}
+	if b.ModulesPath != "" {
+		if b.Kver == "" {
+			return fmt.Errorf("modules: kver is required to validate modules")
+		}
+		if errs := kmod.ValidateModulesForKver(b.ModulesPath, b.Kver); len(errs) > 0 {
+			msgs := make([]string, len(errs))
+			for i, err := range errs {
+				msgs[i] = err.Error()
+			}
+			return fmt.Errorf("modules validation failed:\n  %s", strings.Join(msgs, "\n  "))
 		}
 	}
 	return nil

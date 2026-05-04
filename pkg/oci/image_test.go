@@ -75,7 +75,7 @@ func TestBuildImage_AllComponents(t *testing.T) {
 	if err := os.MkdirAll(modDir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(modDir, "test.ko"), []byte("fake-module"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(modDir, "test.ko"), fakeKO("6.8.0 SMP preempt"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -103,4 +103,39 @@ func TestBuildImage_AllComponents(t *testing.T) {
 	if len(manifest.Layers) != 5 {
 		t.Fatalf("expected 5 layers, got %d", len(manifest.Layers))
 	}
+}
+
+func TestBuildImage_RejectsMismatchedModules(t *testing.T) {
+	dir := t.TempDir()
+	vmlinuz := filepath.Join(dir, "vmlinuz")
+	if err := os.WriteFile(vmlinuz, []byte("fake-vmlinuz"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	modDir := filepath.Join(dir, "modules", "6.8.0")
+	if err := os.MkdirAll(modDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(modDir, "test.ko"), fakeKO("6.7.0 SMP preempt"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	b := &bundle.Bundle{
+		VmlinuzPath: vmlinuz,
+		ModulesPath: filepath.Join(dir, "modules"),
+		Kver:        "6.8.0",
+		Arch:        "amd64",
+	}
+
+	if _, err := BuildImage(b); err == nil {
+		t.Fatal("expected error for module vermagic mismatch")
+	}
+}
+
+func fakeKO(vermagic string) []byte {
+	prefix := []byte("some padding bytes here\x00")
+	marker := append([]byte("vermagic="), []byte(vermagic)...)
+	marker = append(marker, 0x00)
+	suffix := []byte("\x00more padding")
+	return append(append(prefix, marker...), suffix...)
 }

@@ -36,7 +36,8 @@ func TestE2E_BuildInspectInstall(t *testing.T) {
 	if err := os.MkdirAll(modDir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(modDir, "test.ko"), []byte("fake-module"), 0644); err != nil {
+	moduleContent := createFakeKO("6.8.0 SMP preempt")
+	if err := os.WriteFile(filepath.Join(modDir, "test.ko"), moduleContent, 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -102,7 +103,7 @@ func TestE2E_BuildInspectInstall(t *testing.T) {
 		filepath.Join(destDir, "boot", "vmlinuz-6.8.0"):              "fake-vmlinuz-content",
 		filepath.Join(destDir, "boot", "initrd.img-6.8.0"):           "fake-initrd-content",
 		filepath.Join(destDir, "boot", "config-6.8.0"):               "CONFIG_SMP=y\nCONFIG_MODULES=y\n",
-		filepath.Join(destDir, "lib", "modules", "6.8.0", "test.ko"): "fake-module",
+		filepath.Join(destDir, "lib", "modules", "6.8.0", "test.ko"): string(moduleContent),
 	}
 	for path, expected := range checks {
 		data, err := os.ReadFile(path)
