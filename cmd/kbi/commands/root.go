@@ -23,10 +23,19 @@ func Execute() error {
 	return rootCmd.Execute()
 }
 
-// resolveVersion returns the binary's version. When installed via `go install
-// …@vX.Y.Z` the module version is recorded in build info. For local `go build`
-// from a checkout there's no module version, so we fall back to the VCS commit.
+// version is set at link time by the release workflow via
+// -ldflags "-X github.com/multikernel/kbi/cmd/kbi/commands.version=vX.Y.Z".
+// When unset, resolveVersion falls back to module/VCS build info.
+var version string
+
+// resolveVersion returns the binary's version. Precedence:
+//  1. -ldflags-injected `version` (used by release artifacts).
+//  2. Module version from `go install …@vX.Y.Z`.
+//  3. VCS commit (with -dirty suffix if the tree was modified) for `go build`.
 func resolveVersion() string {
+	if version != "" {
+		return version
+	}
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
 		return "dev"
