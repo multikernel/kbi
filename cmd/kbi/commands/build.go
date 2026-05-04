@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/multikernel/kbi/pkg/bundle"
 	"github.com/multikernel/kbi/pkg/oci"
@@ -35,10 +34,12 @@ func init() {
 	buildCmd.Flags().StringVarP(&buildConfig, "config", "c", "", "path to kernel .config")
 	buildCmd.Flags().StringVarP(&buildBTF, "btf", "b", "", "path to BTF data")
 	buildCmd.Flags().StringVarP(&buildTag, "tag", "t", "", "image reference tag (required)")
-	buildCmd.Flags().StringVar(&buildKver, "kver", "", "kernel version (auto-detected if omitted)")
-	buildCmd.Flags().StringVar(&buildArch, "arch", "", "target architecture (auto-detected if omitted)")
+	buildCmd.Flags().StringVar(&buildKver, "kver", "", "kernel version (required)")
+	buildCmd.Flags().StringVar(&buildArch, "arch", "", "target architecture (required)")
 	buildCmd.MarkFlagRequired("vmlinuz")
 	buildCmd.MarkFlagRequired("tag")
+	buildCmd.MarkFlagRequired("kver")
+	buildCmd.MarkFlagRequired("arch")
 	rootCmd.AddCommand(buildCmd)
 }
 
@@ -58,14 +59,8 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	if err := b.Validate(); err != nil {
 		return fmt.Errorf("validation failed: %w", err)
 	}
-
-	if b.Kver == "" {
-		fmt.Fprintln(os.Stderr, "warning: --kver not set and auto-detection not yet implemented, defaulting to 'unknown'")
-		b.Kver = "unknown"
-	}
-	if b.Arch == "" {
-		fmt.Fprintln(os.Stderr, "warning: --arch not set and auto-detection not yet implemented, defaulting to 'unknown'")
-		b.Arch = "unknown"
+	if err := validateBuildMetadata(b); err != nil {
+		return err
 	}
 
 	img, err := oci.BuildImage(b)
@@ -89,5 +84,15 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Arch:   %s\n", manifest.Annotations[oci.AnnotationArch])
 	fmt.Printf("Components: %s\n", manifest.Annotations[oci.AnnotationComponents])
 
+	return nil
+}
+
+func validateBuildMetadata(b *bundle.Bundle) error {
+	if b.Kver == "" {
+		return fmt.Errorf("--kver is required")
+	}
+	if b.Arch == "" {
+		return fmt.Errorf("--arch is required")
+	}
 	return nil
 }

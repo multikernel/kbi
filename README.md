@@ -92,6 +92,8 @@ go build -o kbi ./cmd/kbi
 
 ### Build a KBI image
 
+`--kver` and `--arch` are required because they drive install paths and add-on compatibility checks.
+
 ```bash
 kbi build \
   -k /boot/vmlinuz-$(uname -r) \
