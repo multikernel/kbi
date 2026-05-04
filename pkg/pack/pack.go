@@ -4,8 +4,8 @@ package pack
 type Pack struct {
 	Type       PackType
 	SourcePath string // modules dir or bpf dir
-	ForRef     string // target KBI image reference (optional)
-	ForKBIID   string // target KBI ID (optional, set directly or resolved from ForRef)
+	ForRef     string // target KBI image reference (optional when ForKBIID is set directly)
+	ForKBIID   string // target KBI ID (required, set directly or resolved from ForRef)
 	ForKver    string // target kernel version (resolved from ForRef or set manually)
 	Arch       string // architecture (resolved from ForRef or set manually)
 	Tag        string // output image reference

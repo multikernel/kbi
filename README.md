@@ -32,6 +32,8 @@ Instead of embedding the kernel inside an OS image, KBI treats the kernel as a f
 - **ModulePack** - out-of-tree kernel modules (`for_kbi_id = <kbi_id>`)
 - **BPF Pack** - compiled eBPF programs with attach metadata and required kfuncs (`for_kbi_id = <kbi_id>`)
 
+Pack builds are rejected unless they declare a target KBI ID, either by resolving a target image with `--for` or by passing `--for-kbi-id` directly.
+
 **Resolver** is the enforcement layer that pulls OCI artifacts, validates signatures, enforces `for_kbi_id` binding, checks compatibility, and produces a resolved kernel view.
 
 ### Execution Models
@@ -151,12 +153,13 @@ kbi pack build \
   -t registry.io/org/mydriver:1.0
 ```
 
-Build without a target KBI (unbound):
+Build when the target KBI image is unavailable locally/remotely, but the KBI ID is already known:
 
 ```bash
 kbi pack build \
   --type modulepack \
   -m /path/to/modules/ \
+  --for-kbi-id kbi:sha256:3701209414c63c65... \
   --arch amd64 \
   -t registry.io/org/mydriver:1.0
 ```

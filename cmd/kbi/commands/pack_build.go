@@ -18,21 +18,21 @@ var packBuildCmd = &cobra.Command{
 }
 
 var (
-	packBuildType      string
-	packBuildModules   string
-	packBuildBPF       string
-	packBuildFor       string
-	packBuildForKBIID  string
-	packBuildTag       string
-	packBuildArch      string
+	packBuildType     string
+	packBuildModules  string
+	packBuildBPF      string
+	packBuildFor      string
+	packBuildForKBIID string
+	packBuildTag      string
+	packBuildArch     string
 )
 
 func init() {
 	packBuildCmd.Flags().StringVar(&packBuildType, "type", "", "pack type: modulepack or bpfpack (required)")
 	packBuildCmd.Flags().StringVarP(&packBuildModules, "modules", "m", "", "modules directory (for modulepack)")
 	packBuildCmd.Flags().StringVar(&packBuildBPF, "bpf", "", "BPF programs directory (for bpfpack)")
-	packBuildCmd.Flags().StringVar(&packBuildFor, "for", "", "target KBI image reference (optional, triggers validation)")
-	packBuildCmd.Flags().StringVar(&packBuildForKBIID, "for-kbi-id", "", "stamp KBI ID directly (optional)")
+	packBuildCmd.Flags().StringVar(&packBuildFor, "for", "", "target KBI image reference (resolves for_kbi_id and triggers validation)")
+	packBuildCmd.Flags().StringVar(&packBuildForKBIID, "for-kbi-id", "", "target KBI ID to bind this pack to")
 	packBuildCmd.Flags().StringVarP(&packBuildTag, "tag", "t", "", "output image reference (required)")
 	packBuildCmd.Flags().StringVar(&packBuildArch, "arch", "", "architecture (required if --for not specified)")
 	packBuildCmd.MarkFlagRequired("type")
@@ -65,6 +65,9 @@ func runPackBuild(cmd *cobra.Command, args []string) error {
 	// Reject if both --for and --for-kbi-id are set
 	if packBuildFor != "" && packBuildForKBIID != "" {
 		return fmt.Errorf("--for and --for-kbi-id are mutually exclusive")
+	}
+	if packBuildFor == "" && packBuildForKBIID == "" {
+		return fmt.Errorf("one of --for or --for-kbi-id is required")
 	}
 
 	// Require source directory based on type
@@ -107,6 +110,15 @@ func runPackBuild(cmd *cobra.Command, args []string) error {
 		p.ForKBIID = annotations[oci.AnnotationKBIID]
 		p.ForKver = annotations[oci.AnnotationKver]
 		p.Arch = annotations[oci.AnnotationArch]
+		if p.ForKBIID == "" {
+			return fmt.Errorf("target KBI image %s is missing %s annotation", packBuildFor, oci.AnnotationKBIID)
+		}
+		if p.Arch == "" {
+			return fmt.Errorf("target KBI image %s is missing %s annotation", packBuildFor, oci.AnnotationArch)
+		}
+		if packType == pack.PackTypeModule && p.ForKver == "" {
+			return fmt.Errorf("target KBI image %s is missing %s annotation", packBuildFor, oci.AnnotationKver)
+		}
 
 		// For bpfpack, validate that the target KBI image has BTF
 		if packType == pack.PackTypeBPF {

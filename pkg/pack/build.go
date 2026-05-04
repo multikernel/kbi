@@ -18,6 +18,9 @@ func BuildPack(p *Pack) (v1.Image, error) {
 	if p.SourcePath == "" {
 		return nil, fmt.Errorf("source path is required")
 	}
+	if strings.TrimSpace(p.ForKBIID) == "" {
+		return nil, fmt.Errorf("for_kbi_id is required")
+	}
 	if _, err := os.Stat(p.SourcePath); err != nil {
 		return nil, fmt.Errorf("source path %s does not exist: %w", p.SourcePath, err)
 	}
@@ -65,11 +68,9 @@ func BuildPack(p *Pack) (v1.Image, error) {
 
 	annotations := map[string]string{
 		AnnotationPackType:     string(p.Type),
-		oci.AnnotationArch:    p.Arch,
+		oci.AnnotationArch:     p.Arch,
+		AnnotationPackForKBIID: p.ForKBIID,
 		AnnotationPackContents: strings.Join(contents, ","),
-	}
-	if p.ForKBIID != "" {
-		annotations[AnnotationPackForKBIID] = p.ForKBIID
 	}
 	if p.ForKver != "" {
 		annotations[AnnotationPackForKver] = p.ForKver

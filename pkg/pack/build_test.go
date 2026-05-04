@@ -8,7 +8,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
-func TestBuildPack_ModulePack_Unbound(t *testing.T) {
+func TestBuildPack_ModulePack_RequiresKBIID(t *testing.T) {
 	dir := t.TempDir()
 	modDir := filepath.Join(dir, "modules")
 	os.MkdirAll(modDir, 0755)
@@ -21,27 +21,9 @@ func TestBuildPack_ModulePack_Unbound(t *testing.T) {
 		Tag:        "test.io/mydriver:1.0",
 	}
 
-	img, err := BuildPack(p)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	manifest, err := img.Manifest()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(manifest.Layers) != 1 {
-		t.Fatalf("expected 1 layer, got %d", len(manifest.Layers))
-	}
-	if manifest.Layers[0].MediaType != types.MediaType(MediaTypeModulePack) {
-		t.Fatalf("wrong media type: %s", manifest.Layers[0].MediaType)
-	}
-	if manifest.Annotations[AnnotationPackType] != string(PackTypeModule) {
-		t.Fatalf("wrong pack type: %s", manifest.Annotations[AnnotationPackType])
-	}
-	if manifest.Annotations[AnnotationPackForKBIID] != "" {
-		t.Fatalf("expected empty for_kbi_id for unbound pack, got %s", manifest.Annotations[AnnotationPackForKBIID])
+	_, err := BuildPack(p)
+	if err == nil {
+		t.Fatal("expected error when for_kbi_id is missing")
 	}
 }
 
@@ -83,6 +65,7 @@ func TestBuildPack_BPFPack(t *testing.T) {
 	p := &Pack{
 		Type:       PackTypeBPF,
 		SourcePath: bpfDir,
+		ForKBIID:   "kbi:sha256:abc123",
 		Arch:       "amd64",
 		Tag:        "test.io/mybpf:1.0",
 	}
@@ -99,6 +82,9 @@ func TestBuildPack_BPFPack(t *testing.T) {
 	if manifest.Annotations[AnnotationPackType] != string(PackTypeBPF) {
 		t.Fatalf("wrong pack type: %s", manifest.Annotations[AnnotationPackType])
 	}
+	if manifest.Annotations[AnnotationPackForKBIID] != "kbi:sha256:abc123" {
+		t.Fatalf("wrong for_kbi_id: %s", manifest.Annotations[AnnotationPackForKBIID])
+	}
 	if manifest.Annotations[AnnotationPackRequires] != "btf" {
 		t.Fatalf("expected requires=btf: %s", manifest.Annotations[AnnotationPackRequires])
 	}
@@ -109,6 +95,7 @@ func TestBuildPack_EmptySourceDir(t *testing.T) {
 	p := &Pack{
 		Type:       PackTypeModule,
 		SourcePath: dir,
+		ForKBIID:   "kbi:sha256:abc123",
 		Arch:       "amd64",
 		Tag:        "test.io/empty:1.0",
 	}
