@@ -76,6 +76,48 @@ func TestInstall_WithModules(t *testing.T) {
 	}
 }
 
+func TestInstall_WithModulesVersionDir(t *testing.T) {
+	srcDir := t.TempDir()
+	destDir := t.TempDir()
+
+	vmlinuz := filepath.Join(srcDir, "vmlinuz")
+	if err := os.WriteFile(vmlinuz, []byte("fake-vmlinuz"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	modDir := filepath.Join(srcDir, "lib", "modules", "6.8.0")
+	if err := os.MkdirAll(modDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(modDir, "test.ko"), []byte("fake-module"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	b := &bundle.Bundle{
+		VmlinuzPath: vmlinuz,
+		ModulesPath: modDir,
+		Kver:        "6.8.0",
+		Arch:        "amd64",
+	}
+	img, err := oci.BuildImage(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Install(img, "6.8.0", destDir); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+
+	modFile := filepath.Join(destDir, "lib", "modules", "6.8.0", "test.ko")
+	data, err := os.ReadFile(modFile)
+	if err != nil {
+		t.Fatalf("module not installed under kver directory: %v", err)
+	}
+	if string(data) != "fake-module" {
+		t.Fatalf("unexpected module content: %s", data)
+	}
+}
+
 func TestInstall_DestDoesNotExist(t *testing.T) {
 	srcDir := t.TempDir()
 	vmlinuz := filepath.Join(srcDir, "vmlinuz")

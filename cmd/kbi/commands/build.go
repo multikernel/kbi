@@ -30,7 +30,7 @@ var (
 func init() {
 	buildCmd.Flags().StringVarP(&buildVmlinuz, "vmlinuz", "k", "", "path to vmlinuz (required)")
 	buildCmd.Flags().StringVarP(&buildInitrd, "initrd", "i", "", "path to initrd")
-	buildCmd.Flags().StringVarP(&buildModules, "modules", "m", "", "path to modules directory")
+	buildCmd.Flags().StringVarP(&buildModules, "modules", "m", "", "path to modules directory, usually /lib/modules/<kver>")
 	buildCmd.Flags().StringVar(&buildFirmware, "firmware", "", "path to firmware directory")
 	buildCmd.Flags().StringVarP(&buildConfig, "config", "c", "", "path to kernel .config")
 	buildCmd.Flags().StringVarP(&buildBTF, "btf", "b", "", "path to BTF data")

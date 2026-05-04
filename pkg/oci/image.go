@@ -114,7 +114,7 @@ func BuildImage(b *bundle.Bundle) (v1.Image, error) {
 
 	// modules (optional, tar directory, not an identity component)
 	if b.ModulesPath != "" {
-		modData, err := TarDirectory(b.ModulesPath)
+		modData, err := TarModulesDirectory(b.ModulesPath, b.Kver)
 		if err != nil {
 			return nil, fmt.Errorf("taring modules: %w", err)
 		}
@@ -169,6 +169,37 @@ func NewBlobLayer(content []byte, mediaType string) *blobLayer {
 // preserved. This avoids following symlinks outside the directory tree
 // and potential infinite loops from circular symlinks.
 func TarDirectory(dir string) ([]byte, error) {
+	return tarDirectory(dir, "")
+}
+
+// TarModulesDirectory creates a tar archive whose entries are rooted under
+// kver. This lets callers pass either /lib/modules/<kver>, /lib/modules, or a
+// staging directory while preserving the install layout /lib/modules/<kver>/.
+func TarModulesDirectory(dir, kver string) ([]byte, error) {
+	if kver == "" {
+		return TarDirectory(dir)
+	}
+
+	cleanKver := filepath.Clean(kver)
+	if cleanKver == "." || cleanKver == ".." || filepath.IsAbs(cleanKver) ||
+		strings.HasPrefix(cleanKver, ".."+string(os.PathSeparator)) {
+		return nil, fmt.Errorf("invalid kernel version %q for module archive root", kver)
+	}
+
+	cleanDir := filepath.Clean(dir)
+	if filepath.Base(cleanDir) == cleanKver {
+		return tarDirectory(cleanDir, cleanKver)
+	}
+
+	kverDir := filepath.Join(cleanDir, cleanKver)
+	if info, err := os.Stat(kverDir); err == nil && info.IsDir() {
+		return tarDirectory(kverDir, cleanKver)
+	}
+
+	return tarDirectory(cleanDir, cleanKver)
+}
+
+func tarDirectory(dir, prefix string) ([]byte, error) {
 	var buf bytes.Buffer
 	tw := tar.NewWriter(&buf)
 
@@ -193,7 +224,15 @@ func TarDirectory(dir string) ([]byte, error) {
 		if err != nil {
 			return err
 		}
-		hdr.Name = rel
+		name := rel
+		if prefix != "" {
+			if rel == "." {
+				name = prefix
+			} else {
+				name = filepath.Join(prefix, rel)
+			}
+		}
+		hdr.Name = filepath.ToSlash(name)
 		if err := tw.WriteHeader(hdr); err != nil {
 			return err
 		}
