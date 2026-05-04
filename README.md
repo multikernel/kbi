@@ -30,10 +30,16 @@ A Kernel Bundle is an OCI image containing kernel artifacts in a canonical distr
 The Kernel Build Identity (KBI ID) is a deterministic identifier for a kernel build. It is computed from identity components and published as an OCI annotation:
 
 ```text
-kbi_id = sha256(sort([sha256(vmlinuz), sha256(btf), sha256(config)]))
+kbi_id = "kbi:sha256:" + hex(sha256(
+  join("\n", sort([
+    "vmlinuz:" + hex(sha256(vmlinuz)),
+    "btf:"     + hex(sha256(btf)),     // when present
+    "config:"  + hex(sha256(config)),  // when present
+  ]))
+))
 ```
 
-Only `vmlinuz`, BTF, and kernel config participate in the KBI ID. Modules, initrd, and firmware are bound through metadata such as `kver`, not through the KBI ID. This lets operational payloads change without redefining the kernel build identity.
+`vmlinuz` is always included. `btf` and `config` are included only when supplied at build time, so the same `vmlinuz` produces a different KBI ID depending on which identity inputs are present. Modules, initrd, and firmware are bound through metadata such as `kver`, not through the KBI ID. This lets operational payloads change without redefining the kernel build identity.
 
 ### Add-On Packs
 

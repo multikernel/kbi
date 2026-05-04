@@ -115,7 +115,7 @@ func extractTar(layer v1.Layer, destDir string) error {
 
 		// Path traversal protection: clean the name and ensure it stays within destDir.
 		name := filepath.Clean(hdr.Name)
-		if strings.HasPrefix(name, "..") {
+		if name == ".." || strings.HasPrefix(name, ".."+string(os.PathSeparator)) {
 			return fmt.Errorf("tar entry %q would escape destination directory", hdr.Name)
 		}
 
@@ -143,6 +143,10 @@ func extractTar(layer v1.Layer, destDir string) error {
 				return fmt.Errorf("writing file %q: %w", target, err)
 			}
 			f.Close()
+		case tar.TypeSymlink, tar.TypeLink:
+			// KBI tarballs do not contain links (TarDirectory skips symlinks at pack time),
+			// so encountering one means the archive was produced by something untrusted.
+			return fmt.Errorf("tar entry %q is a link (type %d), which is not supported", hdr.Name, hdr.Typeflag)
 		}
 	}
 	return nil

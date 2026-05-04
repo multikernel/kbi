@@ -34,8 +34,23 @@ func DefaultStore() *Store {
 }
 
 // Save writes an OCI image to local storage under the given reference.
+// Re-saving the same ref replaces any prior content so the OCI index never
+// accumulates stale manifests across rebuilds or pulls.
 func (s *Store) Save(ref string, img v1.Image) error {
 	imgPath := s.refToPath(ref)
+
+	lock, err := s.lock()
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
+
+	// Clear any prior image at this path. layout.Write + AppendImage append to
+	// existing index.json, so without this a second Save would leave the first
+	// manifest in place and Load would return the stale one.
+	if err := os.RemoveAll(imgPath); err != nil {
+		return fmt.Errorf("clearing image directory: %w", err)
+	}
 	if err := os.MkdirAll(imgPath, 0700); err != nil {
 		return fmt.Errorf("creating image directory: %w", err)
 	}
@@ -49,7 +64,7 @@ func (s *Store) Save(ref string, img v1.Image) error {
 		return fmt.Errorf("appending image: %w", err)
 	}
 
-	if err := s.updateIndex(ref, imgPath); err != nil {
+	if err := s.updateIndexLocked(ref, imgPath); err != nil {
 		return fmt.Errorf("updating index: %w", err)
 	}
 
@@ -121,6 +136,13 @@ func (s *Store) refToPath(ref string) string {
 // Remove deletes an image from local storage and removes it from the index.
 func (s *Store) Remove(ref string) error {
 	imgPath := s.refToPath(ref)
+
+	lock, err := s.lock()
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
+
 	if _, err := os.Stat(imgPath); err != nil {
 		return fmt.Errorf("image %q not found", ref)
 	}
@@ -128,13 +150,6 @@ func (s *Store) Remove(ref string) error {
 	if err := os.RemoveAll(imgPath); err != nil {
 		return fmt.Errorf("removing image directory: %w", err)
 	}
-
-	// Remove from index under lock
-	lock, err := s.lockIndex()
-	if err != nil {
-		return err
-	}
-	defer lock.Close()
 
 	indexPath := filepath.Join(s.root, "kbi.json")
 	data, err := os.ReadFile(indexPath)
@@ -185,9 +200,10 @@ func (s *Store) List() ([]string, error) {
 	return refs, nil
 }
 
-// lockIndex acquires an exclusive flock on a .lock file next to kbi.json.
-// Returns the lock file which must be closed (and thus unlocked) by the caller.
-func (s *Store) lockIndex() (*os.File, error) {
+// lock acquires an exclusive flock on the store's kbi.lock file. Held across
+// the full Save/Remove operation so layout writes and the kbi.json index stay
+// consistent under concurrent invocations.
+func (s *Store) lock() (*os.File, error) {
 	lockPath := filepath.Join(s.root, "kbi.lock")
 	if err := os.MkdirAll(s.root, 0700); err != nil {
 		return nil, fmt.Errorf("creating store root: %w", err)
@@ -213,14 +229,8 @@ type kbiIndexEntry struct {
 	Path string `json:"path"`
 }
 
-// updateIndex maintains a kbi.json index file in the store root.
-func (s *Store) updateIndex(ref, path string) error {
-	lock, err := s.lockIndex()
-	if err != nil {
-		return err
-	}
-	defer lock.Close()
-
+// updateIndexLocked maintains kbi.json. The caller must hold the store lock.
+func (s *Store) updateIndexLocked(ref, path string) error {
 	indexPath := filepath.Join(s.root, "kbi.json")
 
 	var idx kbiIndex
@@ -229,7 +239,6 @@ func (s *Store) updateIndex(ref, path string) error {
 		_ = json.Unmarshal(data, &idx)
 	}
 
-	// Update existing entry or append new one
 	found := false
 	for i, entry := range idx.Images {
 		if entry.Ref == ref {

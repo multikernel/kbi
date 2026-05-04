@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -142,9 +143,13 @@ func checkManifestFile(sourceDir, name string) error {
 }
 
 func checkRelativePath(name string) error {
-	cleanName := filepath.Clean(name)
-	if cleanName == "." || cleanName == ".." || filepath.IsAbs(cleanName) ||
-		strings.HasPrefix(cleanName, ".."+string(os.PathSeparator)) {
+	// Normalize backslashes so paths from JSON authored on Windows are checked
+	// against the same rules as forward-slash paths. Use path.Clean (forward-slash
+	// only) instead of filepath.Clean so the prefix check is platform-independent.
+	normalized := strings.ReplaceAll(name, `\`, "/")
+	cleanName := path.Clean(normalized)
+	if cleanName == "." || cleanName == ".." || path.IsAbs(cleanName) ||
+		strings.HasPrefix(cleanName, "../") {
 		return fmt.Errorf("path %q escapes source directory", name)
 	}
 	return nil
